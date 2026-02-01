@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>밀리터리 타이쿤 </title>
+</head>
+<body>
+
+<h1>🏪 메모장 타이쿤 + 🕵️ 추리</h1>
+
+<div id="status"></div>
+
+<button onclick="act('work')">장사하기</button>
+<button onclick="act('upgrade')">자동 수익 업그레이드</button>
+<button onclick="act('reputation')">평판 관리</button>
+<button onclick="act('hire_staff')">직원 고용</button>
+<button onclick="act('hire_security')">보안 요원</button>
+<button onclick="act('investigate_spy')">스파이 조사 (100)</button>
+<button onclick="act('purge_spy')">스파이 제거 (300)</button>
+
+<h3>📜 로그 (스파이는 빨간색)</h3>
+<div id="log"></div>
+
+<h3>📈 3분 수익 그래프</h3>
+<canvas id="chart" width="420" height="200"></canvas>
+
+<h3>🕵️ 배신자 추리</h3>
+<button onclick="guess('직원A')">직원A</button>
+<button onclick="guess('직원B')">직원B</button>
+<button onclick="guess('직원C')">직원C</button>
+<div id="suspect_result"></div>
+
+<script>
+async function refresh() {
+    const res=await fetch("/state");
+    const s=await res.json();
+    document.getElementById("status").innerHTML=`
+        💰 돈: ${s.money}<br>
+        ⭐ 평판: ${s.reputation}<br>
+        ⚙ 자동레벨: ${s.auto_level}<br>
+        👥 직원: ${s.staff} | 🛡 보안: ${s.security}<br>
+        🕵️ 스파이 상태: ${s.spy_active ? `<span style="color:red">침투 중 (위험도 ${s.spy_level})</span>`:"안전"}<br>
+        🕵️ 내부 의심자: ${s.internal_suspect?s.internal_suspect:"없음"}
+    `;
+    document.getElementById("log").innerHTML=
+        s.logs.slice(-15).reverse().map(l=>l.includes("스파이")?`<div class="spy">${l}</div>`:`<div>${l}</div>`).join("");
+    drawChart(s.income_history);
+}
+
+function drawChart(data){
+    const c=document.getElementById("chart");
+    const ctx=c.getContext("2d");
+    ctx.clearRect(0,0,c.width,c.height);
+    if(data.length<1) return;
+    const max=Math.max(...data,10);
+    const stepX=c.width/Math.max(1,data.length-1);
+    ctx.beginPath();
+    ctx.moveTo(0,c.height-(data[0]/max)*c.height);
+    data.forEach((v,i)=>ctx.lineTo(i*stepX,c.height-(v/max)*c.height));
+    ctx.strokeStyle="#4caf50";
+    ctx.stroke();
+}
+
+async function act(action){
+    await fetch("/action",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action})});
+    refresh();
+}
+
+async function guess(name){
+    const res=await fetch("/suspect",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({guess:name})});
+    const data=await res.json();
+    document.getElementById("suspect_result").innerText=data.result;
+    refresh();
+}
+
+setInterval(refresh,3000);
+refresh();
+</script>
+
+</body>
+</html>
